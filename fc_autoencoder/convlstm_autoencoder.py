@@ -31,7 +31,7 @@ import numpy as np
 # (n_frames, width, height, channels) and returns a movie
 # of identical shape.
 
-EPOCH = 50
+EPOCH = 500
 sequenceLength = 15
 
 def MyCNN(inputs):
