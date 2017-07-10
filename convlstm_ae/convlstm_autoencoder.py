@@ -172,7 +172,7 @@ autoencoder.fit(shifted_movies[:1100], shifted_movies[:1100],
         batch_size=10,
         epochs=EPOCH, 
         validation_split=0.05,
-        callbacks=[TensorBoard(log_dir='/tmp/conv_lstm/t1')])
+        callbacks=[TensorBoard(log_dir='./log/conv_lstm/epoch_'+str(EPOCH))])
 
 
 
