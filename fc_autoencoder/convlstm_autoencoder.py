@@ -31,6 +31,7 @@ import numpy as np
 # (n_frames, width, height, channels) and returns a movie
 # of identical shape.
 
+EPOCH = 50
 sequenceLength = 15
 
 def MyCNN(inputs):
@@ -169,7 +170,7 @@ noisy_movies, shifted_movies = generate_movies(n_samples=1200)
 # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
 autoencoder.fit(shifted_movies[:1100], shifted_movies[:1100], 
         batch_size=10,
-        epochs=5, 
+        epochs=EPOCH, 
         validation_split=0.05,
         callbacks=[TensorBoard(log_dir='/tmp/conv_lstm/t1')])
 
@@ -221,7 +222,7 @@ STR_SUFFIX = "_animate.png"
 
 for i in range(15):
     # filenames.append(STR_PATH+STR_FILE+str(i)+STR_SUFFIX)
-    filename = STR_PATH+STR_FILE+ '%05i'%i +STR_SUFFIX
+    filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
     # font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 25)
     # for filename in filenames:
     im = imageio.imread(filename)
@@ -229,6 +230,6 @@ for i in range(15):
     # cv2.putText(img=im, text=str(i), org=(40,80),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
     images.append(im)
 
-imageio.mimsave('./result.gif', images)
+imageio.mimsave('./result'+'_'+str(EPOCH)+'.gif', images)
 
 # os.system("ffmpeg -f image2 -r 1 -i predict/%05d_animate.png -vcodec mpeg4 -y result.mp4")
