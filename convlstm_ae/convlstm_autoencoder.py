@@ -31,7 +31,8 @@ import numpy as np
 # (n_frames, width, height, channels) and returns a movie
 # of identical shape.
 
-EPOCH = 50
+LOG_DIR = "../../tensorboard/log/"
+EPOCH = 1
 sequenceLength = 15
 
 def MyCNN(inputs):
@@ -172,7 +173,7 @@ autoencoder.fit(shifted_movies[:1100], shifted_movies[:1100],
         batch_size=10,
         epochs=EPOCH, 
         validation_split=0.05,
-        callbacks=[TensorBoard(log_dir='./log/conv_lstm/epoch_'+str(EPOCH))])
+        callbacks=[TensorBoard(log_dir=LOG_DIR+'/conv_lstm/epoch_'+str(EPOCH))])
 
 
 
