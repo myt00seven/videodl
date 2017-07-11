@@ -32,7 +32,7 @@ import numpy as np
 # of identical shape.
 
 LOG_DIR = "../../tensorboard/log/"
-EPOCH = 1
+EPOCH = 500
 sequenceLength = 15
 
 def MyCNN(inputs):
