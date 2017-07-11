@@ -1,6 +1,0 @@
-Todo:
-
-- GPU memory occupation problem
-- loss function
-- learning the square moving
-- learning the UCF

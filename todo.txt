@@ -1,0 +1,8 @@
+Todo:
+
+- GPU memory occupation problem
+- loss function
+- learning the square moving
+- learning the UCF
+
+- try fix all 15 frames and use the network to learn, it should be very easy that each frame is 40*40 and hidden state is 800.

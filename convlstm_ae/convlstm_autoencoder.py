@@ -5,6 +5,7 @@ This network is used to predict the next frame of an artificially
 generated movie which contains moving squares.
 """
 from keras.models import Sequential, Model
+from keras.utils import plot_model
 from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D, LSTM, RepeatVector
 from keras.layers.wrappers import *
 from keras.layers.core import *
@@ -13,6 +14,7 @@ from keras.layers.convolutional_recurrent import ConvLSTM2D
 from keras.layers.normalization import BatchNormalization
 from keras.callbacks import TensorBoard
 import os
+import sys
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -21,55 +23,11 @@ import pylab as plt
 import imageio
 import cv2
 import numpy as np
-# import matplotlib.pyplot as mtplt
-
-###################################
-# Model Define
-###################################
-
-# We create a layer which take as input movies of shape
-# (n_frames, width, height, channels) and returns a movie
-# of identical shape.
 
 LOG_DIR = "../../tensorboard/log/"
 EPOCH = 500
 sequenceLength = 15
 
-def MyCNN(inputs):
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)
-    x = MaxPooling2D((2, 2), padding='same')(x)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(inputs)
-    encodes = MaxPooling2D((2, 2), padding='same')(x)
-    return encodes
-
-def MyDeCNN(inputs):
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(inputs)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 2))(x)
-    decoded = Conv2D(1, 3, 3, activation='sigmoid', border_mode='same')(x)
-    return decoded
-
-inputs = Input(shape=(sequenceLength,40,40,1))
-
-conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
-
-# x = TimeDistributed(Conv2D(16, (3, 3)), input_shape=(sequenceLength,40,40,1))(inputs)
-# conved = TimeDistributed(MaxPooling2D((2, 2)), input_shape=(sequenceLength,40,40,1))(x)
-
-# conved = TimeDistributed( MyCNN(inputs), input_shape=(sequenceLength,40,40,1) )
-flat = TimeDistributed(Flatten())(conved)
-encoder = LSTM(units=800, return_sequences=True)(flat)
-encoderModel = Model(input=inputs,output=encoder)
-
-print('--- Defining Decoder ---')
-x = LSTM(units = 800,  return_sequences=True)(encoderModel.output)
-x = Reshape((sequenceLength,10,10,8))(x)
-
-deconved = TimeDistributed(Lambda(MyDeCNN),input_shape=(sequenceLength,10,10,8))(x)
-
-autoencoder = Model(output=deconved,input=inputs)
-autoencoder.compile(loss='mean_squared_error', optimizer='adadelta')
 
 
 # seq = Sequential()
@@ -78,25 +36,19 @@ autoencoder.compile(loss='mean_squared_error', optimizer='adadelta')
 #                    input_shape=(None, 40, 40, 1),
 #                    padding='same', return_sequences=True))
 # seq.add(BatchNormalization())
-
 # seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
 #                    padding='same', return_sequences=True))
 # seq.add(BatchNormalization())
-
 # seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
 #                    padding='same', return_sequences=True))
 # seq.add(BatchNormalization())
-
 # seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
 #                    padding='same', return_sequences=True))
 # seq.add(BatchNormalization())
-
 # seq.add(Conv3D(filters=1, kernel_size=(3, 3, 3),
 #                activation='sigmoid',
 #                padding='same', data_format='channels_last'))
-
 # seq.compile(loss='binary_crossentropy', optimizer='adadelta')
-
 
 ###################################
 # Data Loading
@@ -117,8 +69,11 @@ def generate_movies(n_samples=1200, n_frames=15):
                               dtype=np.float)
 
     for i in range(n_samples):
+        # Add 1 to 4 moving squares
+        n = np.random.randint(1, 5)
+
         # Add 3 to 7 moving squares
-        n = np.random.randint(3, 8)
+        # n = np.random.randint(3, 8)
 
         for j in range(n):
             # Initial position
@@ -129,7 +84,8 @@ def generate_movies(n_samples=1200, n_frames=15):
             directiony = np.random.randint(0, 3) - 1
 
             # Size of the square
-            w = np.random.randint(2, 4)
+            # w = np.random.randint(2, 4)
+            w = np.random.randint(2, 3)
 
             for t in range(n_frames):
                 x_shift = xstart + directionx * t
@@ -162,75 +118,131 @@ def generate_movies(n_samples=1200, n_frames=15):
     shifted_movies[shifted_movies >= 1] = 1
     return noisy_movies, shifted_movies
 
-###################################
-# Training
-###################################
+def MyCNN(inputs):
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)
+    x = MaxPooling2D((2, 2), padding='same')(x)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+    encodes = MaxPooling2D((2, 2), padding='same')(x)
+    return encodes
 
-# Train the network
-noisy_movies, shifted_movies = generate_movies(n_samples=1200)
-# seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
-autoencoder.fit(shifted_movies[:1100], shifted_movies[:1100], 
-        batch_size=10,
-        epochs=EPOCH, 
-        validation_split=0.05,
-        callbacks=[TensorBoard(log_dir=LOG_DIR+'/conv_lstm/epoch_'+str(EPOCH))])
+def MyDeCNN(inputs):
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(inputs)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
+    decoded = Conv2D(1, 3, 3, activation='sigmoid', border_mode='same')(x)
+    return decoded
+
+def main(num_epochs=EPOCH):
+
+    ###################################
+    # Model Define
+    ###################################
+
+    inputs = Input(shape=(sequenceLength,40,40,1))
+
+    conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
+
+    # x = TimeDistributed(Conv2D(16, (3, 3)), input_shape=(sequenceLength,40,40,1))(inputs)
+    # conved = TimeDistributed(MaxPooling2D((2, 2)), input_shape=(sequenceLength,40,40,1))(x)
+
+    # conved = TimeDistributed( MyCNN(inputs), input_shape=(sequenceLength,40,40,1) )
+    flat = TimeDistributed(Flatten())(conved)
+    # encoder = LSTM(units=800, return_sequences=True)(flat)
+    # encoderModel = Model(input=inputs,output=encoder)
+
+    encoded = LSTM(800)(flat)
+    # encoderModel = Model(input=inputs,output=encoder)
+
+    print('--- Defining Decoder ---')
+    # x = LSTM(units = 800,  return_sequences=True)(encoderModel.output)
+    decoded = RepeatVector(sequenceLength)(encoded)
+    x = LSTM(units = 800,  return_sequences=True)(decoded)
+    x = Reshape((sequenceLength,10,10,8))(x)
+
+    deconved = TimeDistributed(Lambda(MyDeCNN),input_shape=(sequenceLength,10,10,8))(x)
+
+    autoencoder = Model(output=deconved,input=inputs)
+    autoencoder.compile(loss='mean_squared_error', optimizer='RMSprop')
+    plot_model(autoencoder, to_file='model.png', show_shapes=True)
+
+    ###################################
+    # Training
+    ###################################
+
+    # Train the network
+    noisy_movies, shifted_movies = generate_movies(n_samples=1200)
+    # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
+    autoencoder.fit(shifted_movies[:1100], shifted_movies[:1100], 
+            batch_size=10,
+            epochs=num_epochs, 
+            validation_split=0.05,
+            callbacks=[TensorBoard(log_dir=LOG_DIR+'/conv_lstm_repeat_vec/epoch_'+str(num_epochs))])
+
+    ###################################
+    # Predicting
+    ###################################
 
 
+    # Testing the network on one movie
+    # feed it with the first 7 positions and then
+    # predict the new positions
+    which = 1104
+    track = shifted_movies[which][::, ::, ::, ::]
+    track2 = autoencoder.predict(track[np.newaxis, ::, ::, ::, ::])
+    track2 = track2[0][::, ::, ::, ::]
 
-###################################
-# Predicting
-###################################
+    # track2 = autoencoder.predict(track)
+    # for j in range(16):
+    #     new = new_pos[::, -1, ::, ::, ::]
+    #     track = np.concatenate((track, new), axis=0)
 
+    # And then compare the predictions
+    # to the ground truth
+    # track2 = shifted_movies[which][::, ::, ::, ::]
 
-# Testing the network on one movie
-# feed it with the first 7 positions and then
-# predict the new positions
-which = 1104
-track = shifted_movies[which][::, ::, ::, ::]
-track2 = autoencoder.predict(track[np.newaxis, ::, ::, ::, ::])
-track2 = track2[0][::, ::, ::, ::]
+    for i in range(15):
+        fig = plt.figure(figsize=(10, 5))
+        ax = fig.add_subplot(121)
+        # if i >= 7:
+        ax.text(1, 3, 'Ground Truth', fontsize=20, color='w')
+        # else:
+            # ax.text(1, 3, 'Inital trajectory', fontsize=20)
+        toplot = track[i, ::, ::, 0]
+        plt.imshow(toplot)
 
-# track2 = autoencoder.predict(track)
-# for j in range(16):
-#     new = new_pos[::, -1, ::, ::, ::]
-#     track = np.concatenate((track, new), axis=0)
+        ax = fig.add_subplot(122)
+        plt.text(1, 3, 'Recovered', fontsize=20)
+        toplot = track2[i, ::, ::, 0]
 
-# And then compare the predictions
-# to the ground truth
-# track2 = shifted_movies[which][::, ::, ::, ::]
+        plt.imshow(toplot)
+        plt.savefig('predict/%05i_animate.png' % (i + 1))
 
-for i in range(15):
-    fig = plt.figure(figsize=(10, 5))
-    ax = fig.add_subplot(121)
-    # if i >= 7:
-    ax.text(1, 3, 'Ground Truth', fontsize=20, color='w')
-    # else:
-        # ax.text(1, 3, 'Inital trajectory', fontsize=20)
-    toplot = track[i, ::, ::, 0]
-    plt.imshow(toplot)
+    images = []
+    STR_PATH = "predict/"
+    STR_FILE = ""
+    STR_SUFFIX = "_animate.png"
 
-    ax = fig.add_subplot(122)
-    plt.text(1, 3, 'Recovered', fontsize=20)
-    toplot = track2[i, ::, ::, 0]
+    for i in range(15):
+        # filenames.append(STR_PATH+STR_FILE+str(i)+STR_SUFFIX)
+        filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
+        # font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 25)
+        # for filename in filenames:
+        im = imageio.imread(filename)
+        # cv2.putText(img=im, text=str(i), org=(180,385),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
+        # cv2.putText(img=im, text=str(i), org=(40,80),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
+        images.append(im)
 
-    plt.imshow(toplot)
-    plt.savefig('predict/%05i_animate.png' % (i + 1))
+    imageio.mimsave('./result'+'_'+str(num_epochs)+'.gif', images)
 
-images = []
-STR_PATH = "predict/"
-STR_FILE = ""
-STR_SUFFIX = "_animate.png"
+    # os.system("ffmpeg -f image2 -r 1 -i predict/%05d_animate.png -vcodec mpeg4 -y result.mp4")
 
-for i in range(15):
-    # filenames.append(STR_PATH+STR_FILE+str(i)+STR_SUFFIX)
-    filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
-    # font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 25)
-    # for filename in filenames:
-    im = imageio.imread(filename)
-    # cv2.putText(img=im, text=str(i), org=(180,385),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
-    # cv2.putText(img=im, text=str(i), org=(40,80),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
-    images.append(im)
-
-imageio.mimsave('./result'+'_'+str(EPOCH)+'.gif', images)
-
-# os.system("ffmpeg -f image2 -r 1 -i predict/%05d_animate.png -vcodec mpeg4 -y result.mp4")
+if __name__ == '__main__':
+    if ('--help' in sys.argv) or ('-h' in sys.argv) or ('help' in sys.argv):
+        print ("Autoencoder for self-geneated moving squares movies:")
+        print ("arg:\t[NUM_EPOCHS](500)")
+    else:
+        kwargs = {}
+        if len(sys.argv) > 1:
+            kwargs['num_epochs'] = int(sys.argv[1])
+        main(**kwargs)
