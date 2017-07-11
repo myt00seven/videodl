@@ -8,6 +8,8 @@ from keras.callbacks import TensorBoard
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from keras.utils import plot_model
+
 
 input_img = Input(shape=(28, 28, 1))  # adapt this if using `channels_first` image data format
 
@@ -44,6 +46,8 @@ encoder = Model(input_img, encoded)
 # decoder = Model(encoded_input, _decoded_l3)
 
 autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
+plot_model(autoencoder, to_file='fc-model.png', show_shapes=True)
+
 
 (x_train, _), (x_test, _) = mnist.load_data()
 
@@ -53,8 +57,8 @@ x_train = np.reshape(x_train, (len(x_train), 28, 28, 1))  # adapt this if using 
 x_test = np.reshape(x_test, (len(x_test), 28, 28, 1))  # adapt this if using `channels_first` image data format
 
 autoencoder.fit(x_train, x_train,
-                epochs=1,
-                batch_size=128,
+                epochs=20,
+                batch_size=200,
                 shuffle=True,
                 validation_data=(x_test, x_test),
                 callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
@@ -70,14 +74,14 @@ n = 10
 plt.figure(figsize=(20, 4))
 for i in range(n):
     # display original
-    ax = plt.subplot(2, n, i)
+    ax = plt.subplot(2, n, i+1)
     plt.imshow(x_test[i].reshape(28, 28))
     plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 
     # display reconstruction
-    ax = plt.subplot(2, n, i + n)
+    ax = plt.subplot(2, n, i + n+1)
     plt.imshow(decoded_imgs[i].reshape(28, 28))
     plt.gray()
     ax.get_xaxis().set_visible(False)

@@ -6,3 +6,5 @@ Todo:
 - learning the UCF
 
 - try fix all 15 frames and use the network to learn, it should be very easy that each frame is 40*40 and hidden state is 800.
+
+- 找出之前看到的一个讲怎么做DL的slide

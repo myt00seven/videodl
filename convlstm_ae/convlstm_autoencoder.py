@@ -13,6 +13,7 @@ from keras.layers.convolutional import Conv3D
 from keras.layers.convolutional_recurrent import ConvLSTM2D
 from keras.layers.normalization import BatchNormalization
 from keras.callbacks import TensorBoard
+from keras.optimizers import RMSprop
 import os
 import sys
 import numpy as np
@@ -61,7 +62,9 @@ sequenceLength = 15
 # For convenience we first create movies with bigger width and height (80x80)
 # and at the end we select a 40x40 window.
 
-def generate_movies(n_samples=1200, n_frames=15):
+def generate_movies(n_samples=10000, n_frames=15):
+    np.random.seed(19921010)
+
     row = 80
     col = 80
     noisy_movies = np.zeros((n_samples, n_frames, row, col, 1), dtype=np.float)
@@ -80,8 +83,10 @@ def generate_movies(n_samples=1200, n_frames=15):
             xstart = np.random.randint(20, 60)
             ystart = np.random.randint(20, 60)
             # Direction of motion
-            directionx = np.random.randint(0, 3) - 1
-            directiony = np.random.randint(0, 3) - 1
+            directionx = 0
+            # directionx = np.random.randint(0, 3) - 1
+            directiony = 0
+            # directiony = np.random.randint(0, 3) - 1
 
             # Size of the square
             # w = np.random.randint(2, 4)
@@ -118,17 +123,30 @@ def generate_movies(n_samples=1200, n_frames=15):
     shifted_movies[shifted_movies >= 1] = 1
     return noisy_movies, shifted_movies
 
-def MyCNN(inputs):
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)
+def MyCNNthenDeCNN(inputs):
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
     x = MaxPooling2D((2, 2), padding='same')(x)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
-    encodes = MaxPooling2D((2, 2), padding='same')(x)
-    return encodes
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)
+
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
+    decoded = Conv2D(1, 3, 3, activation='sigmoid', border_mode='same')(x)
+    return decoded
+
+def MyCNN(inputs):
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
+    x = MaxPooling2D((2, 2), padding='same')(x)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)
+    return x
 
 def MyDeCNN(inputs):
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(inputs)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)
     x = UpSampling2D((2, 2))(x)
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
     x = UpSampling2D((2, 2))(x)
     decoded = Conv2D(1, 3, 3, activation='sigmoid', border_mode='same')(x)
     return decoded
@@ -141,28 +159,35 @@ def main(num_epochs=EPOCH):
 
     inputs = Input(shape=(sequenceLength,40,40,1))
 
-    conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
+    # conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
 
     # x = TimeDistributed(Conv2D(16, (3, 3)), input_shape=(sequenceLength,40,40,1))(inputs)
     # conved = TimeDistributed(MaxPooling2D((2, 2)), input_shape=(sequenceLength,40,40,1))(x)
 
     # conved = TimeDistributed( MyCNN(inputs), input_shape=(sequenceLength,40,40,1) )
-    flat = TimeDistributed(Flatten())(conved)
+    # flat = TimeDistributed(Flatten())(conved)
     # encoder = LSTM(units=800, return_sequences=True)(flat)
     # encoderModel = Model(input=inputs,output=encoder)
 
-    encoded = LSTM(800)(flat)
+    #LSTM part
+    # encoded = LSTM(800)(flat)
+
     # encoderModel = Model(input=inputs,output=encoder)
 
     print('--- Defining Decoder ---')
     # x = LSTM(units = 800,  return_sequences=True)(encoderModel.output)
-    decoded = RepeatVector(sequenceLength)(encoded)
-    x = LSTM(units = 800,  return_sequences=True)(decoded)
-    x = Reshape((sequenceLength,10,10,8))(x)
 
-    deconved = TimeDistributed(Lambda(MyDeCNN),input_shape=(sequenceLength,10,10,8))(x)
+    #LSTM part
+    # decoded = RepeatVector(sequenceLength)(encoded)
+    # x = LSTM(units = 800,  return_sequences=True)(decoded)
+    # x = Reshape((sequenceLength,10,10,8))(flat)
+
+    # deconved = TimeDistributed(Lambda(MyDeCNN),input_shape=(sequenceLength,10,10,8))(conved)
+    deconved = TimeDistributed(Lambda(MyCNNthenDeCNN) )(inputs)
 
     autoencoder = Model(output=deconved,input=inputs)
+    myoptmizer = RMSprop(lr=0.1, decay=1e-4)
+    # autoencoder.compile(loss='mean_squared_error', optimizer=myoptmizer)
     autoencoder.compile(loss='mean_squared_error', optimizer='RMSprop')
     plot_model(autoencoder, to_file='model.png', show_shapes=True)
 
@@ -171,13 +196,13 @@ def main(num_epochs=EPOCH):
     ###################################
 
     # Train the network
-    noisy_movies, shifted_movies = generate_movies(n_samples=1200)
+    noisy_movies, shifted_movies = generate_movies(n_samples=10000)
     # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
-    autoencoder.fit(shifted_movies[:1100], shifted_movies[:1100], 
+    autoencoder.fit(shifted_movies[:9500], shifted_movies[:9500], 
             batch_size=10,
             epochs=num_epochs, 
             validation_split=0.05,
-            callbacks=[TensorBoard(log_dir=LOG_DIR+'/conv_lstm_repeat_vec/epoch_'+str(num_epochs))])
+            callbacks=[TensorBoard(log_dir=LOG_DIR+'/convlstm_repvec_static_nolstm/epoch_'+str(num_epochs))])
 
     ###################################
     # Predicting
@@ -202,20 +227,31 @@ def main(num_epochs=EPOCH):
     # track2 = shifted_movies[which][::, ::, ::, ::]
 
     for i in range(15):
-        fig = plt.figure(figsize=(10, 5))
-        ax = fig.add_subplot(121)
+        fig = plt.figure(figsize=(15, 5))
+        ax = fig.add_subplot(131)
         # if i >= 7:
-        ax.text(1, 3, 'Ground Truth', fontsize=20, color='w')
+        # ax.text(1, 3, 'Ground Truth', fontsize=20, color='w')
+        ax.text(1, 3, 'Ground Truth', fontsize=20)
         # else:
             # ax.text(1, 3, 'Inital trajectory', fontsize=20)
         toplot = track[i, ::, ::, 0]
-        plt.imshow(toplot)
+        plt.imshow(toplot ,vmin=0, vmax=1, cmap='jet', aspect='auto')
+        plt.colorbar()
 
-        ax = fig.add_subplot(122)
-        plt.text(1, 3, 'Recovered', fontsize=20)
+        ax = fig.add_subplot(132)
+        plt.text(1, 3, 'Recovered(Same)', fontsize=20)
         toplot = track2[i, ::, ::, 0]
 
-        plt.imshow(toplot)
+        plt.imshow(toplot,vmin=0, vmax=1, cmap='jet', aspect='auto')
+        plt.colorbar()
+
+        ax = fig.add_subplot(133)
+        plt.text(1, 3, 'Recovered(Scaled)', fontsize=20)
+        toplot = track2[i, ::, ::, 0]
+
+        plt.imshow(toplot ,cmap='jet', aspect='auto')
+        plt.colorbar()
+
         plt.savefig('predict/%05i_animate.png' % (i + 1))
 
     images = []
