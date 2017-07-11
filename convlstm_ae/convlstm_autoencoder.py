@@ -14,6 +14,7 @@ from keras.layers.convolutional_recurrent import ConvLSTM2D
 from keras.layers.normalization import BatchNormalization
 from keras.callbacks import TensorBoard
 from keras.optimizers import RMSprop
+from keras import backend as K
 import os
 import sys
 import numpy as np
@@ -26,9 +27,9 @@ import cv2
 import numpy as np
 
 LOG_DIR = "../../tensorboard/log/"
-EPOCH = 500
+EPOCH = 5
 sequenceLength = 15
-
+setup_name = "conv_16_8_lstm_800"
 
 
 # seq = Sequential()
@@ -73,20 +74,20 @@ def generate_movies(n_samples=10000, n_frames=15):
 
     for i in range(n_samples):
         # Add 1 to 4 moving squares
-        n = np.random.randint(1, 5)
+        # n = np.random.randint(1, 5)
 
         # Add 3 to 7 moving squares
-        # n = np.random.randint(3, 8)
+        n = np.random.randint(3, 8)
 
         for j in range(n):
             # Initial position
             xstart = np.random.randint(20, 60)
             ystart = np.random.randint(20, 60)
             # Direction of motion
-            directionx = 0
-            # directionx = np.random.randint(0, 3) - 1
-            directiony = 0
-            # directiony = np.random.randint(0, 3) - 1
+            # directionx = 0
+            directionx = np.random.randint(0, 3) - 1
+            # directiony = 0
+            directiony = np.random.randint(0, 3) - 1
 
             # Size of the square
             # w = np.random.randint(2, 4)
@@ -122,6 +123,11 @@ def generate_movies(n_samples=10000, n_frames=15):
     noisy_movies[noisy_movies >= 1] = 1
     shifted_movies[shifted_movies >= 1] = 1
     return noisy_movies, shifted_movies
+
+def DenseNetwork(inputs):
+    x = Dense(5, activation='relu')(inputs)
+    x = Dense(1, activation='sigmoid')(x)
+    return x
 
 def MyCNNthenDeCNN(inputs):
     x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
@@ -160,9 +166,35 @@ def main(num_epochs=EPOCH):
     inputs = Input(shape=(sequenceLength,40,40,1))
 
     # conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
+ 
+    x = TimeDistributed(Conv2D(16, (3, 3), padding='same'), input_shape=(sequenceLength,40,40,1))(inputs)
+    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(8, (3, 3), padding='same'))(x)
+    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    
+    x = TimeDistributed(Flatten())(x)
+    # x = Reshape((15,10*10*4))(x)
 
-    # x = TimeDistributed(Conv2D(16, (3, 3)), input_shape=(sequenceLength,40,40,1))(inputs)
-    # conved = TimeDistributed(MaxPooling2D((2, 2)), input_shape=(sequenceLength,40,40,1))(x)
+    # x = LSTM(400, activation='tanh', return_sequences=True)(x)
+    x = LSTM(800, activation='tanh')(x)
+    print(K.int_shape(x))
+
+    x = RepeatVector(15)(x)
+    print(K.int_shape(x))
+
+    x = LSTM(800, activation='tanh', return_sequences=True)(x)
+    print(K.int_shape(x))
+
+    # x = Reshape((15,10,10,4))(x)
+    x = TimeDistributed(Reshape((10,10,8)))(x)
+    
+    x = TimeDistributed(Conv2D(8, (3, 3), padding='same'))(x)
+    x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(16, (3, 3), padding='same'))(x)
+    x = TimeDistributed(UpSampling2D((2, 2)))(x)
+
+    # deconved = TimeDistributed(Conv2D(1, (3, 3), padding='same'))(x)
+    deconved = TimeDistributed(Dense(1, activation='sigmoid'))(x)
 
     # conved = TimeDistributed( MyCNN(inputs), input_shape=(sequenceLength,40,40,1) )
     # flat = TimeDistributed(Flatten())(conved)
@@ -183,13 +215,19 @@ def main(num_epochs=EPOCH):
     # x = Reshape((sequenceLength,10,10,8))(flat)
 
     # deconved = TimeDistributed(Lambda(MyDeCNN),input_shape=(sequenceLength,10,10,8))(conved)
-    deconved = TimeDistributed(Lambda(MyCNNthenDeCNN) )(inputs)
+
+    # deconved = Reshape((40,40,1))(deconved)
+
+    # x = TimeDistributed(Dense(5, activation='relu'))(inputs)
+    # deconved = TimeDistributed(Dense(1, activation='sigmoid'))(x)
 
     autoencoder = Model(output=deconved,input=inputs)
-    myoptmizer = RMSprop(lr=0.1, decay=1e-4)
+    # myoptmizer = RMSprop(lr=0.1, decay=1e-4)
     # autoencoder.compile(loss='mean_squared_error', optimizer=myoptmizer)
     autoencoder.compile(loss='mean_squared_error', optimizer='RMSprop')
     plot_model(autoencoder, to_file='model.png', show_shapes=True)
+
+    print('--- Finish Compile and Plot Model ---')
 
     ###################################
     # Training
@@ -198,11 +236,11 @@ def main(num_epochs=EPOCH):
     # Train the network
     noisy_movies, shifted_movies = generate_movies(n_samples=10000)
     # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
-    autoencoder.fit(shifted_movies[:9500], shifted_movies[:9500], 
-            batch_size=10,
+    autoencoder.fit(shifted_movies[:9500], shifted_movies[:9500],
+            batch_size=20,
             epochs=num_epochs, 
             validation_split=0.05,
-            callbacks=[TensorBoard(log_dir=LOG_DIR+'/convlstm_repvec_static_nolstm/epoch_'+str(num_epochs))])
+            callbacks=[TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs))])
 
     ###################################
     # Predicting
@@ -269,7 +307,7 @@ def main(num_epochs=EPOCH):
         # cv2.putText(img=im, text=str(i), org=(40,80),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
         images.append(im)
 
-    imageio.mimsave('./result'+'_'+str(num_epochs)+'.gif', images)
+    imageio.mimsave('./result'+'_'+setup_name+'_'+str(num_epochs)+'.gif', images)
 
     # os.system("ffmpeg -f image2 -r 1 -i predict/%05d_animate.png -vcodec mpeg4 -y result.mp4")
 

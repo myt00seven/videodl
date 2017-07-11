@@ -97,7 +97,7 @@ x_train, noisy_movies = generate_movies(n_samples=10000)
 
 autoencoder.fit(x_train[:9500], x_train[:9500],
                 epochs=200,
-                batch_size=10,
+                batch_size=100,
                 shuffle=True,
                 validation_split=0.05,
                 callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
