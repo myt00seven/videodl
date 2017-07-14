@@ -29,7 +29,7 @@ import numpy as np
 LOG_DIR = "../../tensorboard/log/"
 EPOCH = 5
 sequenceLength = 15
-setup_name = "pure_convlstm_1000"
+setup_name = "pure_convlstm_1000_right"
 
 
 # seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),

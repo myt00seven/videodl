@@ -26,10 +26,13 @@ import imageio
 import cv2
 import numpy as np
 
+GENERATE_DATA = 1 
+# 1 if generate aritificial data, 0 if use UCF101 data
+
 LOG_DIR = "../../tensorboard/log/"
 EPOCH = 5
-sequenceLength = 15
-setup_name = "conv_16_8_lstm_800"
+sequenceLength = 10
+setup_name = "clrmvsq_conv_32_16_8_lstm_6272"
 
 
 # seq = Sequential()
@@ -62,66 +65,79 @@ setup_name = "conv_16_8_lstm_800"
 # which move linearly over time.
 # For convenience we first create movies with bigger width and height (80x80)
 # and at the end we select a 40x40 window.
+def set_bound(pos):
+    if pos <0:
+        return 0
+    elif pos>224+40:
+        return 224+39
+    else:
+        return pos
 
-def generate_movies(n_samples=10000, n_frames=15):
+def generate_movies(n_samples=10000, n_frames=10):
     np.random.seed(19921010)
 
-    row = 80
-    col = 80
-    noisy_movies = np.zeros((n_samples, n_frames, row, col, 1), dtype=np.float)
-    shifted_movies = np.zeros((n_samples, n_frames, row, col, 1),
+    row = 224 + 40
+    col = 224 + 40
+    noisy_movies = np.zeros((n_samples, n_frames, row, col, 3), dtype=np.float)
+    shifted_movies = np.zeros((n_samples, n_frames, row, col, 3),
                               dtype=np.float)
 
     for i in range(n_samples):
         # Add 1 to 4 moving squares
         # n = np.random.randint(1, 5)
 
-        # Add 3 to 7 moving squares
-        n = np.random.randint(3, 8)
+        # Add 500 to 600 moving squares
+        n = np.random.randint(500, 601)
 
         for j in range(n):
             # Initial position
-            xstart = np.random.randint(20, 60)
-            ystart = np.random.randint(20, 60)
+            xstart = np.random.randint(20, 20+224)
+            ystart = np.random.randint(20, 20+224)
             # Direction of motion
             # directionx = 0
-            directionx = np.random.randint(0, 3) - 1
+            directionx = np.random.randint(0, 21) - 10
             # directiony = 0
-            directiony = np.random.randint(0, 3) - 1
+            directiony = np.random.randint(0, 21) - 10
 
             # Size of the square
             # w = np.random.randint(2, 4)
-            w = np.random.randint(2, 3)
+            w = np.random.randint(3, 10)
 
             for t in range(n_frames):
                 x_shift = xstart + directionx * t
                 y_shift = ystart + directiony * t
-                noisy_movies[i, t, x_shift - w: x_shift + w,
-                             y_shift - w: y_shift + w, 0] += 1
+                # noisy_movies[i, t, x_shift - w: x_shift + w,
+                             # y_shift - w: y_shift + w, 0] += 1
 
                 # Make it more robust by adding noise.
                 # The idea is that if during inference,
                 # the value of the pixel is not exactly one,
                 # we need to train the network to be robust and still
                 # consider it as a pixel belonging to a square.
-                if np.random.randint(0, 2):
-                    noise_f = (-1)**np.random.randint(0, 2)
-                    noisy_movies[i, t,
-                                 x_shift - w - 1: x_shift + w + 1,
-                                 y_shift - w - 1: y_shift + w + 1,
-                                 0] += noise_f * 0.1
+                # if np.random.randint(0, 2):
+                #     noise_f = (-1)**np.random.randint(0, 2)
+                #     noisy_movies[i, t,
+                #                  x_shift - w - 1: x_shift + w + 1,
+                #                  y_shift - w - 1: y_shift + w + 1,
+                #                  0] += noise_f * 0.1
+                color_r = np.random.randint(100,205)
+                color_g = np.random.randint(100,205)
+                color_b = np.random.randint(100,205)
 
                 # Shift the ground truth by 1
                 x_shift = xstart + directionx * (t + 1)
                 y_shift = ystart + directiony * (t + 1)
-                shifted_movies[i, t, x_shift - w: x_shift + w,
-                               y_shift - w: y_shift + w, 0] += 1
+
+
+                shifted_movies[i, t, set_bound(x_shift - w): set_bound(x_shift + w), set_bound(y_shift - w): set_bound(y_shift + w), 0] += color_r
+                shifted_movies[i, t, set_bound(x_shift - w): set_bound(x_shift + w), set_bound(y_shift - w): set_bound(y_shift + w), 1] += color_g
+                shifted_movies[i, t, set_bound(x_shift - w): set_bound(x_shift + w), set_bound(y_shift - w): set_bound(y_shift + w), 2] += color_b
 
     # Cut to a 40x40 window
-    noisy_movies = noisy_movies[::, ::, 20:60, 20:60, ::]
-    shifted_movies = shifted_movies[::, ::, 20:60, 20:60, ::]
-    noisy_movies[noisy_movies >= 1] = 1
-    shifted_movies[shifted_movies >= 1] = 1
+    noisy_movies = noisy_movies[::, ::, 20:20+224, 20:20+224, ::]
+    shifted_movies = shifted_movies[::, ::, 20:20+224, 20:20+224, ::]
+    noisy_movies[noisy_movies >= 255] = 255
+    shifted_movies[shifted_movies >= 255] = 255
     return noisy_movies, shifted_movies
 
 def DenseNetwork(inputs):
@@ -163,11 +179,13 @@ def main(num_epochs=EPOCH):
     # Model Define
     ###################################
 
-    inputs = Input(shape=(sequenceLength,40,40,1))
+    inputs = Input(shape=(sequenceLength,224,224,3))
 
     # conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
  
-    x = TimeDistributed(Conv2D(16, (3, 3), padding='same'), input_shape=(sequenceLength,40,40,1))(inputs)
+    x = TimeDistributed(Conv2D(32, (3, 3), padding='same'), input_shape=(sequenceLength,40,40,1))(inputs)
+    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(16, (3, 3), padding='same'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     x = TimeDistributed(Conv2D(8, (3, 3), padding='same'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2)))(x)
@@ -176,25 +194,27 @@ def main(num_epochs=EPOCH):
     # x = Reshape((15,10*10*4))(x)
 
     # x = LSTM(400, activation='tanh', return_sequences=True)(x)
-    x = LSTM(800, activation='tanh')(x)
+    x = LSTM(6272, activation='tanh')(x)
     print(K.int_shape(x))
 
-    x = RepeatVector(15)(x)
+    x = RepeatVector(sequenceLength)(x)
     print(K.int_shape(x))
 
-    x = LSTM(800, activation='tanh', return_sequences=True)(x)
+    x = LSTM(6272, activation='tanh', return_sequences=True)(x)
     print(K.int_shape(x))
 
     # x = Reshape((15,10,10,4))(x)
-    x = TimeDistributed(Reshape((10,10,8)))(x)
+    x = TimeDistributed(Reshape((28,28,8)))(x)
     
     x = TimeDistributed(Conv2D(8, (3, 3), padding='same'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = TimeDistributed(Conv2D(16, (3, 3), padding='same'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(32, (3, 3), padding='same'))(x)
+    x = TimeDistributed(UpSampling2D((2, 2)))(x)
 
     # deconved = TimeDistributed(Conv2D(1, (3, 3), padding='same'))(x)
-    deconved = TimeDistributed(Dense(1, activation='sigmoid'))(x)
+    deconved = TimeDistributed(Dense(3, activation='sigmoid'))(x)
 
     # conved = TimeDistributed( MyCNN(inputs), input_shape=(sequenceLength,40,40,1) )
     # flat = TimeDistributed(Flatten())(conved)
@@ -234,7 +254,10 @@ def main(num_epochs=EPOCH):
     ###################################
 
     # Train the network
-    noisy_movies, shifted_movies = generate_movies(n_samples=10000)
+    if GENERATE_DATA:
+        noisy_movies, shifted_movies = generate_movies(n_samples=10000)
+    else 
+
     # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
     autoencoder.fit(shifted_movies[:9500], shifted_movies[:9500],
             batch_size=20,
@@ -250,7 +273,7 @@ def main(num_epochs=EPOCH):
     # Testing the network on one movie
     # feed it with the first 7 positions and then
     # predict the new positions
-    which = 1104
+    which = 9800
     track = shifted_movies[which][::, ::, ::, ::]
     track2 = autoencoder.predict(track[np.newaxis, ::, ::, ::, ::])
     track2 = track2[0][::, ::, ::, ::]
@@ -264,7 +287,7 @@ def main(num_epochs=EPOCH):
     # to the ground truth
     # track2 = shifted_movies[which][::, ::, ::, ::]
 
-    for i in range(15):
+    for i in range(sequenceLength):
         fig = plt.figure(figsize=(15, 5))
         ax = fig.add_subplot(131)
         # if i >= 7:
@@ -272,20 +295,20 @@ def main(num_epochs=EPOCH):
         ax.text(1, 3, 'Ground Truth', fontsize=20)
         # else:
             # ax.text(1, 3, 'Inital trajectory', fontsize=20)
-        toplot = track[i, ::, ::, 0]
+        toplot = track[i, ::, ::, ::]
         plt.imshow(toplot ,vmin=0, vmax=1, cmap='jet', aspect='auto')
         plt.colorbar()
 
         ax = fig.add_subplot(132)
         plt.text(1, 3, 'Recovered(Same)', fontsize=20)
-        toplot = track2[i, ::, ::, 0]
+        toplot = track2[i, ::, ::, ::]
 
         plt.imshow(toplot,vmin=0, vmax=1, cmap='jet', aspect='auto')
         plt.colorbar()
 
         ax = fig.add_subplot(133)
         plt.text(1, 3, 'Recovered(Scaled)', fontsize=20)
-        toplot = track2[i, ::, ::, 0]
+        toplot = track2[i, ::, ::, ::]
 
         plt.imshow(toplot ,cmap='jet', aspect='auto')
         plt.colorbar()
