@@ -183,11 +183,11 @@ def main(num_epochs=EPOCH):
     # x = RepeatVector(15)(x)
     # x = LSTM(800, activation='tanh', return_sequences=True)(x)
     # x = TimeDistributed(Reshape((10,10,8)))(x)
-    
+
+    x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = ConvLSTM2D(filters=16, kernel_size=(3, 3), padding='same', return_sequences=True)(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True)(x)    
-    x = TimeDistributed(UpSampling2D((2, 2)))(x)
 
     # deconved = TimeDistributed(Conv2D(1, (3, 3), padding='same'))(x)
     deconved = TimeDistributed(Dense(1, activation='sigmoid'))(x)
