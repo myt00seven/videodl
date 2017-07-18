@@ -32,10 +32,10 @@ GENERATE_DATA = 1
 # 1 if generate aritificial data, 0 if use UCF101 data
 
 LOG_DIR = "../../tensorboard/log/"
-EPOCH = 5
+EPOCH = 100
 sequenceLength = 5
 setup_name = "clrmvsq_simple_vgg_a"
-N_SAMPLES = 600
+N_SAMPLES = 1500
 BATCHSIZE = 5
 
 
@@ -82,9 +82,8 @@ def generate_movies(n_samples=N_SAMPLES, n_frames=sequenceLength):
 
     row = 224 + 40
     col = 224 + 40
-    noisy_movies = np.zeros((n_samples, n_frames, row, col, 3), dtype=np.float)
-    shifted_movies = np.zeros((n_samples, n_frames, row, col, 3),
-                              dtype=np.float)
+    # noisy_movies = np.zeros((n_samples, n_frames, row, col, 3), dtype=np.float)
+    shifted_movies = np.zeros((n_samples, n_frames, row, col, 3),dtype=np.float)
 
     for i in range(n_samples):
         # Add 1 to 4 moving squares
@@ -143,11 +142,11 @@ def generate_movies(n_samples=N_SAMPLES, n_frames=sequenceLength):
                 shifted_movies[i, t, set_bound(x_shift - w): set_bound(x_shift + w), set_bound(y_shift - w): set_bound(y_shift + w), 2] = color_b
 
     # Cut to a 40x40 window
-    noisy_movies = noisy_movies[::, ::, 20:20+224, 20:20+224, ::]
+    # noisy_movies = noisy_movies[::, ::, 20:20+224, 20:20+224, ::]
     shifted_movies = shifted_movies[::, ::, 20:20+224, 20:20+224, ::]
     # noisy_movies[noisy_movies >= 1] = 1
     # shifted_movies[shifted_movies >= 1] = 1
-    return noisy_movies, shifted_movies
+    return shifted_movies
 
 def get_ucf_data(n_samples):
     return 
@@ -185,6 +184,57 @@ def MyDeCNN(inputs):
     x = UpSampling2D((2, 2))(x)
     decoded = Conv2D(1, 3, 3, activation='sigmoid', border_mode='same')(x)
     return decoded
+
+def plot_val(which):
+
+    # which = int(N_SAMPLES *0.98)
+    track = shifted_movies[which][::, ::, ::, ::]
+    track2 = autoencoder.predict(track[np.newaxis, ::, ::, ::, ::])
+    track2 = track2[0][::, ::, ::, ::]
+
+    # track2 = autoencoder.predict(track)
+    # for j in range(16):
+    #     new = new_pos[::, -1, ::, ::, ::]
+    #     track = np.concatenate((track, new), axis=0)
+
+    # And then compare the predictions
+    # to the ground truth
+    # track2 = shifted_movies[which][::, ::, ::, ::]
+
+    for i in range(sequenceLength):
+        fig = plt.figure(figsize=(15, 5))
+        ax = fig.add_subplot(131)
+        # if i >= 7:
+        # ax.text(1, 3, 'Ground Truth', fontsize=20, color='w')
+        ax.text(2, 4, 'Ground Truth', fontsize=16, color='red')
+        # else:
+            # ax.text(1, 3, 'Inital trajectory', fontsize=20)
+        toplot = track[i, ::, ::, ::]
+        plt.imshow(toplot)
+
+        ax = fig.add_subplot(132)
+        ax.text(2, 4, 'Recovered', fontsize=16, color='red')
+        toplot = track2[i, ::, ::, ::]
+        plt.imshow(toplot)
+
+        ax = fig.add_subplot(133)
+        ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
+        toplot = toplot / np.amax(toplot)
+        plt.imshow(toplot)
+
+        plt.savefig('predict/%05i_animate.png' % (i + 1))
+
+    images = []
+    STR_PATH = "predict/"
+    STR_FILE = ""
+    STR_SUFFIX = "_animate.png"
+
+    for i in range(sequenceLength):
+        filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
+        im = imageio.imread(filename)
+        images.append(im)
+
+    imageio.mimsave('./result'+'_'+setup_name+'_'+str(num_epochs)+'.gif', images)
 
 def main(num_epochs=EPOCH):
 
@@ -254,31 +304,6 @@ def main(num_epochs=EPOCH):
     print("%.2f seconds to define the model" % elapsed )
     t = time.time()
 
-
-    # conved = TimeDistributed( MyCNN(inputs), input_shape=(sequenceLength,40,40,1) )
-    # flat = TimeDistributed(Flatten())(conved)
-    # encoder = LSTM(units=800, return_sequences=True)(flat)
-    # encoderModel = Model(input=inputs,output=encoder)
-
-    #LSTM part
-    # encoded = LSTM(800)(flat)
-
-    # encoderModel = Model(input=inputs,output=encoder)
-
-    # x = LSTM(units = 800,  return_sequences=True)(encoderModel.output)
-
-    #LSTM part
-    # decoded = RepeatVector(sequenceLength)(encoded)
-    # x = LSTM(units = 800,  return_sequences=True)(decoded)
-    # x = Reshape((sequenceLength,10,10,8))(flat)
-
-    # deconved = TimeDistributed(Lambda(MyDeCNN),input_shape=(sequenceLength,10,10,8))(conved)
-
-    # deconved = Reshape((40,40,1))(deconved)
-
-    # x = TimeDistributed(Dense(5, activation='relu'))(inputs)
-    # deconved = TimeDistributed(Dense(1, activation='sigmoid'))(x)
-
     autoencoder = Model(output=deconved,input=inputs)
     # myoptmizer = RMSprop(lr=0.1, decay=1e-4)
     # autoencoder.compile(loss='mean_squared_error', optimizer=myoptmizer)
@@ -296,7 +321,7 @@ def main(num_epochs=EPOCH):
 
     # Train the network
     if GENERATE_DATA:
-        noisy_movies, shifted_movies = generate_movies(n_samples=N_SAMPLES)
+        shifted_movies = generate_movies(n_samples=N_SAMPLES)
     else:
         noisy_movies, shifted_movies = get_ucf_data(n_samples=N_SAMPLES)
 
@@ -315,45 +340,28 @@ def main(num_epochs=EPOCH):
     # Predicting
     ###################################
 
-
-    # Testing the network on one movie
-    # feed it with the first 7 positions and then
-    # predict the new positions
+    # plot_val(int(N_SAMPLES*0.99))
     which = int(N_SAMPLES *0.98)
     track = shifted_movies[which][::, ::, ::, ::]
     track2 = autoencoder.predict(track[np.newaxis, ::, ::, ::, ::])
     track2 = track2[0][::, ::, ::, ::]
 
-    # track2 = autoencoder.predict(track)
-    # for j in range(16):
-    #     new = new_pos[::, -1, ::, ::, ::]
-    #     track = np.concatenate((track, new), axis=0)
-
-    # And then compare the predictions
-    # to the ground truth
-    # track2 = shifted_movies[which][::, ::, ::, ::]
-
     for i in range(sequenceLength):
-        fig = plt.figure(figsize=(10, 5))
-        ax = fig.add_subplot(121)
-        # if i >= 7:
-        # ax.text(1, 3, 'Ground Truth', fontsize=20, color='w')
+        fig = plt.figure(figsize=(15, 5))
+        ax = fig.add_subplot(131)
         ax.text(2, 4, 'Ground Truth', fontsize=16, color='red')
-        # else:
-            # ax.text(1, 3, 'Inital trajectory', fontsize=20)
         toplot = track[i, ::, ::, ::]
         plt.imshow(toplot)
 
-        ax = fig.add_subplot(122)
+        ax = fig.add_subplot(132)
         ax.text(2, 4, 'Recovered', fontsize=16, color='red')
         toplot = track2[i, ::, ::, ::]
         plt.imshow(toplot)
 
-        # ax = fig.add_subplot(133)
-        # plt.text(1, 3, 'Recovered(Scaled)', fontsize=20)
-        # toplot = track2[i, ::, ::, ::]
-        # plt.imshow(toplot , aspect='auto')
-        # plt.colorbar()
+        ax = fig.add_subplot(133)
+        ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
+        toplot = toplot / np.amax(toplot)
+        plt.imshow(toplot)
 
         plt.savefig('predict/%05i_animate.png' % (i + 1))
 
@@ -363,18 +371,11 @@ def main(num_epochs=EPOCH):
     STR_SUFFIX = "_animate.png"
 
     for i in range(sequenceLength):
-        # filenames.append(STR_PATH+STR_FILE+str(i)+STR_SUFFIX)
         filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
-        # font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 25)
-        # for filename in filenames:
         im = imageio.imread(filename)
-        # cv2.putText(img=im, text=str(i), org=(180,385),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
-        # cv2.putText(img=im, text=str(i), org=(40,80),fontFace=2, fontScale=1, color=(255,0,0), thickness=2)
         images.append(im)
 
     imageio.mimsave('./result'+'_'+setup_name+'_'+str(num_epochs)+'.gif', images)
-
-    # os.system("ffmpeg -f image2 -r 1 -i predict/%05d_animate.png -vcodec mpeg4 -y result.mp4")
 
 if __name__ == '__main__':
     if ('--help' in sys.argv) or ('-h' in sys.argv) or ('help' in sys.argv):
