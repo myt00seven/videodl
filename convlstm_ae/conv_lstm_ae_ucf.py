@@ -32,12 +32,11 @@ GENERATE_DATA = 1
 # 1 if generate aritificial data, 0 if use UCF101 data
 
 LOG_DIR = "../../tensorboard/log/"
-EPOCH = 100
-sequenceLength = 5
+EPOCH = 150
+sequenceLength = 3
 setup_name = "clrmvsq_simple_vgg_a"
 N_SAMPLES = 1500
 BATCHSIZE = 5
-
 
 # seq = Sequential()
 
@@ -110,6 +109,7 @@ def generate_movies(n_samples=N_SAMPLES, n_frames=sequenceLength):
             # Size of the square
             # w = np.random.randint(2, 4)
             w = np.random.randint(3, 10)
+            # w = np.random.randint(30, 59)
 
             color_r = np.random.randint(100,205) /255.0
             color_g = np.random.randint(100,205) /255.0
@@ -252,46 +252,50 @@ def main(num_epochs=EPOCH):
     x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'), input_shape=(sequenceLength,224,224,3))(inputs)
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    # # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
 
-    x = TimeDistributed(Flatten())(x)
+    x = TimeDistributed(Flatten())(x) 
 
-    x = Dense(3000, activation='relu')(x)
+    x = Dense(500, activation='relu')(x)
     # x = Reshape((15,10*10*4))(x)
 
     # x = LSTM(400, activation='tanh', return_sequences=True)(x)
-    x = LSTM(3000, activation='tanh')(x)
+    x = LSTM(500, activation='tanh')(x)
     print(K.int_shape(x))
 
     x = RepeatVector(sequenceLength)(x)
     print(K.int_shape(x))
     print('--- Defining Decoder ---')
 
-    x = LSTM(3000, activation='tanh', return_sequences=True)(x)
+    x = LSTM(500, activation='tanh', return_sequences=True)(x)
     print(K.int_shape(x))
 
-    x = Dense(7*7*512, activation='relu')(x)
+    # x = Dense(7*7*512, activation='relu')(x)
+    x = Dense(56*56*64, activation='relu')(x)
     # x = Reshape((15,10,10,4))(x)
-    x = TimeDistributed(Reshape((7,7,512)))(x)
+    # x = TimeDistributed(Reshape((7,7,512)))(x)
+    x = TimeDistributed(Reshape((56,56,64)))(x)
     
-    x = TimeDistributed(UpSampling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(UpSampling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    x = TimeDistributed(UpSampling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    # # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
-    x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
@@ -334,7 +338,8 @@ def main(num_epochs=EPOCH):
             batch_size=BATCHSIZE,
             epochs=num_epochs, 
             validation_split=0.05,
-            callbacks=[TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs))])
+            callbacks=[TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs)), ]
+            )
 
     ###################################
     # Predicting
@@ -360,7 +365,10 @@ def main(num_epochs=EPOCH):
 
         ax = fig.add_subplot(133)
         ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
-        toplot = toplot / np.amax(toplot)
+        maxvalue = np.amax(toplot)
+        if maxvalue <= 0:
+            maxvalue = 1
+        toplot = toplot / maxvalue
         plt.imshow(toplot)
 
         plt.savefig('predict/%05i_animate.png' % (i + 1))
