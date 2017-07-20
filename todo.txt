@@ -28,8 +28,10 @@ July 18:
 - [high] Add a center/standarization operation in our generated data
 
 July 19 early morning:
-- review LSTM cell mechanism
-- see how the LSTM cell in Keras work
-- see if the "inversed sequence" is the right way to implement what diego proposed to wire the LSTM cell (h1 -> h1', h2-> h2' and h3-> h3')
+- review LSTM cell mechanism √
+- see how the LSTM cell in Keras work √
+- see if the "inversed sequence" is the right way to implement what diego proposed to wire the LSTM cell (h1 -> h1', h2-> h2' and h3-> h3') √
 - implement the function to generate UCF data; 
 	- the function should specify the FPS and lenth of sequence, return a train_data and val_data
+- then try which model work on UCF data
+- try the inter-reversed wiring with UCF, and then the bi-directino with

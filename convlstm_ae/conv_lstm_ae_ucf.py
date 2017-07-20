@@ -35,8 +35,10 @@ LOG_DIR = "../../tensorboard/log/"
 EPOCH = 150
 sequenceLength = 3
 setup_name = "clrmvsq_simple_vgg_a"
-N_SAMPLES = 1500
+N_SAMPLES = 1000
 BATCHSIZE = 5
+ucf_generate_fps = 2  # The fps to sample from the original UCF data to generate the train and val set
+data_path = "../../data/UCF/"
 
 # seq = Sequential()
 
@@ -148,7 +150,22 @@ def generate_movies(n_samples=N_SAMPLES, n_frames=sequenceLength):
     # shifted_movies[shifted_movies >= 1] = 1
     return shifted_movies
 
-def get_ucf_data(n_samples):
+def get_ucf_data(n_samples, dataset = "train"):
+    # dataset = train / test
+    #   it determines which subfolder it is going to use to create the data
+
+    np.random.seed(19921010)
+
+    data_folder = data_path + '/' + dataset + '/'
+
+    # set the size of the window that we are going to crop from the UCF dataset
+    row = 224
+    col = 224
+
+    data = np.zeros((n_samples, sequenceLength, row, col, 3),dtype=np.float)
+    
+
+    
     return 
 
 
@@ -327,7 +344,7 @@ def main(num_epochs=EPOCH):
     if GENERATE_DATA:
         shifted_movies = generate_movies(n_samples=N_SAMPLES)
     else:
-        noisy_movies, shifted_movies = get_ucf_data(n_samples=N_SAMPLES)
+        shifted_movies = get_ucf_data(n_samples=N_SAMPLES)
 
     elapsed = time.time() - t
     print("%.2f seconds to load the dataset" % elapsed )
