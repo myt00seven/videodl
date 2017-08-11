@@ -12,7 +12,7 @@ from keras.layers.core import *
 from keras.layers.convolutional import Conv3D
 from keras.layers.convolutional_recurrent import ConvLSTM2D
 from keras.layers.normalization import BatchNormalization
-from keras.callbacks import TensorBoard
+from keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
 from keras.optimizers import RMSprop
 from keras import backend as K
 
@@ -27,6 +27,8 @@ import pylab as plt
 import imageio
 import cv2
 import numpy as np
+
+import data_seq # Generating UCF sequences data
 
 GENERATE_DATA = 1 
 # 1 if generate aritificial data, 0 if use UCF101 data
@@ -325,17 +327,31 @@ def main(num_epochs=EPOCH):
     if GENERATE_DATA:
         shifted_movies = generate_movies(n_samples=N_SAMPLES)
     else:
-        ucf_train_generator = get_ucf_data(n_samples=N_SAMPLES)
+        data = data_seq.DataSet(seq_length=sequenceLength,class_limit=1)
+        ucf_train_generator =  data.seq_generator(BATCHSIZE, 'train', 'images')
+        ucf_val_generator =  data.seq_generator(BATCHSIZE, 'validation', 'images')
+
 
     elapsed = time.time() - t
     print("%.2f seconds to load the dataset" % elapsed )
 
+    callbacks_func = [
+        TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs)), 
+        EarlyStopping(patience=10), 
+        ModelCheckpoint(
+            filepath='./data/checkpoints/inception.{epoch:03d}-{val_loss:.2f}.hdf5',
+            verbose=1,
+            save_best_only=True)
+        ]
+
+
     # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
-    autoencoder.fit_generator(,
-            batch_size=BATCHSIZE,
+    autoencoder.fit_generator(ucf_train_generator,
+            steps_per_epoch=100,            
             epochs=num_epochs, 
-            validation_split=0.05,
-            callbacks=[TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs)), ]
+            validation_data=ucf_val_generator,
+            validation_steps=10,
+            callbacks=callbacks_func 
             )
 
     ###################################

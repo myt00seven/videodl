@@ -1,1 +1,0 @@
-# Autoencoder for UCF dataset
