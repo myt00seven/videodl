@@ -1,5 +1,6 @@
 """
 Class for managing our data.
+For generating sequence video data that used for autoencoder
 """
 import csv
 import numpy as np
@@ -11,6 +12,10 @@ import sys
 import operator
 from processor import process_image
 from keras.utils import np_utils
+
+sequence_length = 5
+
+data_path = "../../data/UCF/"
 
 class DataSet():
 
@@ -126,6 +131,59 @@ class DataSet():
 
         return np.array(X), np.array(y)
 
+    def seq_generator(self, batch_size, train_test, data_type, concat=False):
+        """Return a generator that we can use to train on. There are
+        a couple different things we can return:
+
+        data_type: 'features', 'images'
+        """
+        # Get the right dataset for the generator.
+        train, test = self.split_train_test()
+        data = train if train_test == 'train' else test
+
+        print("Creating %s generator with %d samples." % (train_test, len(data)))
+
+        while 1:
+            X, y = [], []
+
+            # Generate batch_size samples.
+            for _ in range(batch_size):
+                # Reset to be safe.
+                sequence = None
+
+                # Get a random sample.
+                sample = random.choice(data)
+                # print(sample)
+
+                # Check to see if we've already saved this sequence.
+                if data_type is "images":
+                    # Get and resample frames.
+                    frames = self.get_frames_for_sample(sample)
+                    # print(frames)
+                    # print("len of frames:%d"%len(frames))
+                    # print("seq_length:%d"%self.seq_length)
+                    frames = self.rescale_list(frames, self.seq_length)
+
+                    # Build the image sequence
+                    sequence = self.build_image_sequence(frames)
+                else:
+                    # Get the sequence from disk.
+                    sequence = self.get_extracted_sequence(data_type, sample)
+
+                if sequence is None:
+                    print("Can't find sequence. Did you generate them?")
+                    sys.exit()  # TODO this should raise
+
+                if concat:
+                    # We want to pass the sequence back as a single array. This
+                    # is used to pass into an MLP rather than an RNN.
+                    sequence = np.concatenate(sequence).ravel()
+
+                X.append(sequence)
+                y.append(self.get_class_one_hot(sample[1]))
+
+            yield np.array(X), np.array(y)
+
     def frame_generator(self, batch_size, train_test, data_type, concat=False):
         """Return a generator that we can use to train on. There are
         a couple different things we can return:
@@ -196,7 +254,7 @@ class DataSet():
     def get_frames_for_sample(sample):
         """Given a sample row from the data file, get all the corresponding frame
         filenames."""
-        path = './data/' + sample[0] + '/' + sample[1] + '/'
+        path = data_path + sample[0] + '/' + sample[1] + '/'
         filename = sample[2]
         images = sorted(glob.glob(path + filename + '*jpg'))
         return images
@@ -211,13 +269,28 @@ class DataSet():
         """Given a list and a size, return a rescaled/samples list. For example,
         if we want a list of size 5 and we have a list of size 25, return a new
         list of size five which is every 5th element of the origina list."""
+
+        # size is likely to be 5
+        # len(inpute_list) is 100~300
         assert len(input_list) >= size
 
         # Get the number to skip between iterations.
-        skip = len(input_list) // size
+        # skip = len(input_list) // size
+        skip = 24 # Since the original video is 24fps, we use 
+        while skip*size >= len(input_list):
+            skip=skip/2
+
+        begin = random.randint(0,skip-1)
+
+        # print("begin:%d"%begin)
+        # print("len_input_list:%d"%len(input_list))
+        # print("skip:%d"%skip)
+
+        the_range = range(0, len(input_list), skip)
+        the_range = the_range[:size]
 
         # Build our new output.
-        output = [input_list[i] for i in range(0, len(input_list), skip)]
+        output = [input_list[i+begin] for i in the_range]
 
         # Cut off the last one if needed.
         return output[:size]
