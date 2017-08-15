@@ -35,14 +35,13 @@ import imageio
 import cv2
 import numpy as np
 import numpngw
-import skimage
 
 from IPython.display import HTML
 
 
 # In[21]:
 
-print os.getcwd()
+# print os.getcwd()
 
 
 # In[3]:

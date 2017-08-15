@@ -14,6 +14,8 @@ from processor import process_image
 from keras.utils import np_utils
 
 sequence_length = 5
+SKIPPING_FRAMES = 12
+# when SKIPPING_FRAMES is 24, we pick one frame every second (24fps)
 
 data_path = "../../data/UCF/"
 
@@ -141,7 +143,8 @@ class DataSet():
         train, test = self.split_train_test()
         data = train if train_test == 'train' else test
 
-        print("Creating %s generator with %d samples." % (train_test, len(data)))
+        print("Creating %s generator with %d videos." % (train_test, len(data)))
+        print("Recommended steps per epoch = videos/batch_size")
 
         while 1:
             X, y = [], []
@@ -279,7 +282,8 @@ class DataSet():
 
         # Get the number to skip between iterations.
         # skip = len(input_list) // size
-        skip = 24 # Since the original video is 24fps, we use 
+
+        skip = SKIPPING_FRAMES # Since the original video is 24fps, we use 
         while skip*size >= len(input_list):
             skip=skip/2
 

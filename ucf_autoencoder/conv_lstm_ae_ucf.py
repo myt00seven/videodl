@@ -30,17 +30,22 @@ import numpy as np
 
 import data_seq # Generating UCF sequences data
 
-GENERATE_DATA = 1 
+GENERATE_DATA = False
 # 1 if generate aritificial data, 0 if use UCF101 data
 
+
+weights_file = "/home/lab.analytics.northwestern.edu/yma/git/data/checkpoints/vggucf.004-0.06.hdf5"
+# weights_file = ""
 LOG_DIR = "../../tensorboard/log/"
-EPOCH = 150
-sequenceLength = 3
-setup_name = "clrmvsq_simple_vgg_a"
-N_SAMPLES = 1000
-BATCHSIZE = 5
-ucf_generate_fps = 2  # The fps to sample from the original UCF data to generate the train and val set
 data_path = "../../data/UCF/"
+MAX_EPOCH = 150
+sequenceLength = 5
+setup_name = "ucf_vgg_64_128_256_LSTM500"
+UCF_CLASS_LIMIT = 10
+BATCHSIZE = 4
+MODE = "train"
+STEPS_PER_EPOCH_TRAIN = 200
+
 
 # seq = Sequential()
 
@@ -80,7 +85,7 @@ def set_bound(pos):
     else:
         return pos
 
-def generate_movies(n_samples=N_SAMPLES, n_frames=sequenceLength):
+def generate_movies(n_samples=1000, n_frames=sequenceLength):
     np.random.seed(19921010)
 
     row = 224 + 40
@@ -236,7 +241,7 @@ def plot_val(which):
 
     imageio.mimsave('./result'+'_'+setup_name+'_'+str(num_epochs)+'.gif', images)
 
-def main(num_epochs=EPOCH):
+def main(mode=MODE,num_epochs=MAX_EPOCH):
 
     ###################################
     # Model Define
@@ -252,13 +257,13 @@ def main(num_epochs=EPOCH):
     x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'), input_shape=(sequenceLength,224,224,3))(inputs)
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2)))(x)
-    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
-    # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
     # # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
     # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
@@ -281,21 +286,23 @@ def main(num_epochs=EPOCH):
     print(K.int_shape(x))
 
     # x = Dense(7*7*512, activation='relu')(x)
-    x = Dense(56*56*64, activation='relu')(x)
+    # x = Dense(56*56*64, activation='relu')(x)
+    x = Dense(28*28*256, activation='relu')(x)
     # x = Reshape((15,10,10,4))(x)
     # x = TimeDistributed(Reshape((7,7,512)))(x)
-    x = TimeDistributed(Reshape((56,56,64)))(x)
+    # x = TimeDistributed(Reshape((56,56,64)))(x)
+    x = TimeDistributed(Reshape((28,28,256)))(x)
     
     # x = TimeDistributed(UpSampling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
     # x = TimeDistributed(UpSampling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
-    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    # # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
-    # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    # # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(UpSampling2D((2, 2)))(x)
+    x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
@@ -325,11 +332,11 @@ def main(num_epochs=EPOCH):
 
     # Train the network
     if GENERATE_DATA:
-        shifted_movies = generate_movies(n_samples=N_SAMPLES)
+        shifted_movies = generate_movies(n_samples=1000)
     else:
-        data = data_seq.DataSet(seq_length=sequenceLength,class_limit=1)
+        data = data_seq.DataSet(seq_length=sequenceLength,class_limit=UCF_CLASS_LIMIT)
         ucf_train_generator =  data.seq_generator(BATCHSIZE, 'train', 'images')
-        ucf_val_generator =  data.seq_generator(BATCHSIZE, 'validation', 'images')
+        ucf_val_generator =  data.seq_generator(BATCHSIZE, 'test', 'images')
 
 
     elapsed = time.time() - t
@@ -337,73 +344,93 @@ def main(num_epochs=EPOCH):
 
     callbacks_func = [
         TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs)), 
-        EarlyStopping(patience=10), 
+        EarlyStopping(patience=20), 
         ModelCheckpoint(
-            filepath='./data/checkpoints/inception.{epoch:03d}-{val_loss:.2f}.hdf5',
+            filepath='../../data/checkpoints/vggucf.{epoch:03d}-{val_loss:.2f}.hdf5',
             verbose=1,
             save_best_only=True)
         ]
 
+    if weights_file is None or weights_file =="":
+        print("Random initilze the weights.")
+    else:
+        print("Loading saved model: %s." % weights_file)
+        autoencoder.load_weights(weights_file)
 
-    # seq.fit(noisy_movies[:1000], shifted_movies[:1000], 
-    autoencoder.fit_generator(ucf_train_generator,
-            steps_per_epoch=100,            
-            epochs=num_epochs, 
-            validation_data=ucf_val_generator,
-            validation_steps=10,
-            callbacks=callbacks_func 
-            )
+    if mode=="train":
+        autoencoder.fit_generator(ucf_train_generator,
+        steps_per_epoch=STEPS_PER_EPOCH_TRAIN,            
+        epochs=num_epochs, 
+        validation_data=ucf_val_generator,
+        validation_steps=STEPS_PER_EPOCH_TRAIN*0.1,
+        callbacks=callbacks_func 
+        )
+    elif mode =="inf":
 
-    ###################################
-    # Predicting
-    ###################################
+        ###################################
+        # Predicting
+        ###################################
 
-    # plot_val(int(N_SAMPLES*0.99))
-    which = int(N_SAMPLES *0.98)
-    track = shifted_movies[which][::, ::, ::, ::]
-    track2 = autoencoder.predict(track[np.newaxis, ::, ::, ::, ::])
-    track2 = track2[0][::, ::, ::, ::]
+        # plot_val(int(N_SAMPLES*0.99))
+        # which = int(N_SAMPLES *0.98)
 
-    for i in range(sequenceLength):
-        fig = plt.figure(figsize=(15, 5))
-        ax = fig.add_subplot(131)
-        ax.text(2, 4, 'Ground Truth', fontsize=16, color='red')
-        toplot = track[i, ::, ::, ::]
-        plt.imshow(toplot)
+        ucf_val_generator =  data.seq_generator(1, 'test', 'images')
 
-        ax = fig.add_subplot(132)
-        ax.text(2, 4, 'Recovered', fontsize=16, color='red')
-        toplot = track2[i, ::, ::, ::]
-        plt.imshow(toplot)
+        for index in range(10):
+            print("Ploting %d gif for inference."%index)
 
-        ax = fig.add_subplot(133)
-        ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
-        maxvalue = np.amax(toplot)
-        if maxvalue <= 0:
-            maxvalue = 1
-        toplot = toplot / maxvalue
-        plt.imshow(toplot)
+            track,track_ = next(ucf_val_generator)
+            track2 = autoencoder.predict(track)
+            track = track[0][::, ::, ::, ::]
+            # print(track.shape)
+            # print(track2.shape)
+            track2 = track2[0][::, ::, ::, ::]
+            # print(track2.shape)
 
-        plt.savefig('predict/%05i_animate.png' % (i + 1))
 
-    images = []
-    STR_PATH = "predict/"
-    STR_FILE = ""
-    STR_SUFFIX = "_animate.png"
+            for i in range(sequenceLength):
+                fig = plt.figure(figsize=(15, 5))
+                ax = fig.add_subplot(131)
+                ax.text(2, 4, 'Ground Truth', fontsize=16, color='red')
+                toplot = track[i, ::, ::, ::]
+                plt.imshow(toplot)
 
-    for i in range(sequenceLength):
-        filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
-        im = imageio.imread(filename)
-        images.append(im)
+                ax = fig.add_subplot(132)
+                ax.text(2, 4, 'Recovered', fontsize=16, color='red')
+                toplot = track2[i, ::, ::, ::]
+                plt.imshow(toplot)
 
-    imageio.mimsave('./result'+'_'+setup_name+'_'+str(num_epochs)+'.gif', images)
+                ax = fig.add_subplot(133)
+                ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
+                maxvalue = np.amax(toplot)
+                if maxvalue <= 0:
+                    maxvalue = 1
+                toplot = toplot / maxvalue
+                plt.imshow(toplot)
+
+                plt.savefig('predict/%05i_animate.png' % (i + 1))
+
+            images = []
+            STR_PATH = "predict/"
+            STR_FILE = ""
+            STR_SUFFIX = "_animate.png"
+
+            for i in range(sequenceLength):
+                filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
+                im = imageio.imread(filename)
+                images.append(im)
+
+            imageio.mimsave('./result'+'_'+setup_name+'_'+str(index)+'.gif', images)
 
 if __name__ == '__main__':
     if ('--help' in sys.argv) or ('-h' in sys.argv) or ('help' in sys.argv):
-        print ("Autoencoder for self-geneated moving squares movies:")
+        print ("Autoencoder for ucf101 dataset:")
+        print ("arg:\t[train\inf(infernce)]")
         print ("arg:\t[NUM_EPOCHS](500)")
     else:
         kwargs = {}
         if len(sys.argv) > 1:
-            kwargs['num_epochs'] = int(sys.argv[1])
+            kwargs['mode'] = sys.argv[1]
+        if len(sys.argv) > 2:
+            kwargs['num_epochs'] = int(sys.argv[2])
         main(**kwargs)
