@@ -38,17 +38,19 @@ WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/downlo
 WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
 
-weights_file = "/home/lab.analytics.northwestern.edu/yma/git/data/checkpoints/ucf_vgg16_simple_seq1_convlstm.014-0.04.hdf5"
+weights_file = "/home/lab.analytics.northwestern.edu/yma/git/data/checkpoints/ucf_vgg16_seq3_convlstm.040-0.0857.hdf5"
+# weights_file = "/home/lab.analytics.northwestern.edu/yma/git/data/checkpoints/ucf_vgg16_seq6_convlstm.040-0.0842.hdf5"
 # weights_file = ""
 LOG_DIR = "../../tensorboard/log/"
 data_path = "../../data/UCF/"
 MAX_EPOCH = 150
-sequenceLength = 1
-setup_name = "ucf_vgg16_simple_seq1_convlstm"
+sequenceLength = 3
+setup_name = "ucf_vgg16_seq3_convlstm"
 UCF_CLASS_LIMIT = 1
 BATCHSIZE = 5
 MODE = "train"
-STEPS_PER_EPOCH_TRAIN = 200
+STEPS_PER_EPOCH_TRAIN = 1000
+LSTM_STATE = 7*7*64
 
 
 # seq = Sequential()
@@ -259,24 +261,25 @@ def main(mode=MODE,num_epochs=MAX_EPOCH):
     # conved = TimeDistributed(Lambda(MyCNN), input_shape=(sequenceLength,40,40,1)) (inputs)
  
     x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu', name='block1_conv1'), input_shape=(sequenceLength,224,224,3))(inputs)
-    # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu', name='block1_conv2'))(x)
+    x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu', name='block1_conv2'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2), name='block1_pool'))(x)
     # x = TimeDistributed(MaxPooling2D((2, 2)))(x)
     x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu', name='block2_conv1'))(x)
-    # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu', name='block2_conv2'))(x)
+    x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu', name='block2_conv2'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2), name='block2_pool'))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv1'))(x)
-    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv2'))(x)
-    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv3'))(x)
+    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv2'))(x)
+    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv3'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2), name='block3_pool'))(x)
     x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv1'))(x)
-    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv2'))(x)
-    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv3'))(x)
+    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv2'))(x)
+    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv3'))(x)
     x = TimeDistributed(MaxPooling2D((2, 2), name='block4_pool'))(x)
     x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv1'))(x)
-    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv2'))(x)
+    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv2'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv3'))(x)
+    x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
 
 
     # LSTM part
@@ -284,29 +287,34 @@ def main(mode=MODE,num_epochs=MAX_EPOCH):
 
     # x = TimeDistributed(Flatten())(x)
 
-    x = ConvLSTM2D(filters=40, kernel_size=(3, 3),padding='same', return_sequences=True)(x)
-
-    x = ConvLSTM2D(filters=40, kernel_size=(3, 3),padding='same', return_sequences=True)(x)
+    x = ConvLSTM2D(filters=64, kernel_size=(3, 3),padding='same', return_sequences=True)(x)
     
     # x = Dense(2000, activation='relu')(x)
     # x = Reshape((15,10*10*4))(x)
 
     # x = LSTM(400, activation='tanh', return_sequences=True)(x)
     # x = LSTM(2000, activation='tanh')(x)
+    # x = LSTM(LSTM_STATE, activation='tanh',return_sequences=True)(x)
     # print(K.int_shape(x))
 
     # x = RepeatVector(sequenceLength)(x)
     # print(K.int_shape(x))
-    # print('--- Defining Decoder ---')
+    print('--- Defining Decoder ---')
 
-    # x = LSTM(2000, activation='tanh', return_sequences=True)(x)
+    x = ConvLSTM2D(filters=64, kernel_size=(3, 3),padding='same', return_sequences=True)(x)
+
+
+    # x = LSTM(LSTM_STATE, activation='tanh', return_sequences=True)(x)
     # print(K.int_shape(x))
 
-    # x = Dense(7*7*512, activation='relu')(x)
+    # x = Dense(sequenceLength*7*7*64, activation='relu')(x)
     # x = Dense(56*56*64, activation='relu')(x)
     # x = Dense(28*28*256, activation='relu')(x)
     # x = Reshape((15,10,10,4))(x)
-    # x = TimeDistributed(Reshape((7,7,512)))(x)
+    # x = Reshape((sequenceLength,7,7,64))(x)
+    # print(K.int_shape(x))
+
+    # x = TimeDistributed(Reshape((7,7,64)))(x)
     # x = TimeDistributed(Reshape((56,56,64)))(x)
     # x = TimeDistributed(Reshape((28,28,256)))(x)
     
@@ -314,31 +322,32 @@ def main(mode=MODE,num_epochs=MAX_EPOCH):
 
 
 
+    x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv3'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv2'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv1'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv3'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv2'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block4_conv1'))(x)
-    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv3'))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv2'))(x)
     # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu', name='block3_conv1'))(x)
-    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
-    # # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
+    # x = TimeDistributed(Conv2D(256, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
     # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu', name='block2_conv2'))(x)
     # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu', name='block2_conv1'))(x)
-    # x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(Conv2D(128, (3, 3), padding='same', activation='relu'))(x)
     # x = TimeDistributed(UpSampling2D((2, 2)))(x)
     x = TimeDistributed(UpSampling2D((2, 2)))(x)
@@ -346,7 +355,7 @@ def main(mode=MODE,num_epochs=MAX_EPOCH):
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu', name='block1_conv2'))(x)
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu', name='block1_conv1'))(x)
     # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
-    # x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
     # deconved = TimeDistributed(Conv2D(1, (3, 3), padding='same', activation='relu'))(x)
     deconved = TimeDistributed(Conv2D(3, (3, 3), padding='same', activation='sigmoid'))(x)
@@ -387,11 +396,14 @@ def main(mode=MODE,num_epochs=MAX_EPOCH):
 
     callbacks_func = [
         TensorBoard(log_dir=LOG_DIR+'/convlstm_'+setup_name+'/epoch_'+str(num_epochs)), 
-        EarlyStopping(patience=5), 
+        EarlyStopping(patience=30), 
         ModelCheckpoint(
-            filepath='../../data/checkpoints/'+setup_name+'.{epoch:03d}-{val_loss:.2f}.hdf5',
+            filepath='../../data/checkpoints/'+setup_name+'.{epoch:03d}-{val_loss:.4f}.hdf5',
+            monitor='val_loss',
             verbose=1,
-            save_best_only=True)
+            save_best_only=True,
+            # save_weights_only=True
+            )
         ]
 
     if weights_file is None or weights_file =="":
@@ -423,53 +435,56 @@ def main(mode=MODE,num_epochs=MAX_EPOCH):
         # plot_val(int(N_SAMPLES*0.99))
         # which = int(N_SAMPLES *0.98)
 
-        ucf_val_generator =  data.seq_generator(1, 'test', 'images')
-
-        for index in range(10):
-            print("Ploting %d gif for inference."%index)
-
-            track,track_ = next(ucf_val_generator)
-            track2 = autoencoder.predict(track)
-            track = track[0][::, ::, ::, ::]
-            # print(track.shape)
-            # print(track2.shape)
-            track2 = track2[0][::, ::, ::, ::]
-            # print(track2.shape)
+        for inf_mode in ["train","test"]:
 
 
-            for i in range(sequenceLength):
-                fig = plt.figure(figsize=(15, 5))
-                ax = fig.add_subplot(131)
-                ax.text(2, 4, 'Ground Truth', fontsize=16, color='red')
-                toplot = track[i, ::, ::, ::]
-                plt.imshow(toplot)
+            ucf_val_generator =  data.seq_generator(1, inf_mode, 'images')
 
-                ax = fig.add_subplot(132)
-                ax.text(2, 4, 'Recovered', fontsize=16, color='red')
-                toplot = track2[i, ::, ::, ::]
-                plt.imshow(toplot)
+            for index in range(10):
+                print("Ploting %d gif for inference."%index)
 
-                ax = fig.add_subplot(133)
-                ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
-                maxvalue = np.amax(toplot)
-                if maxvalue <= 0:
-                    maxvalue = 1
-                toplot = toplot / maxvalue
-                plt.imshow(toplot)
+                track,track_ = next(ucf_val_generator)
+                track2 = autoencoder.predict(track)
+                track = track[0][::, ::, ::, ::]
+                # print(track.shape)
+                # print(track2.shape)
+                track2 = track2[0][::, ::, ::, ::]
+                # print(track2.shape)
 
-                plt.savefig('predict/%05i_animate.png' % (i + 1))
 
-            images = []
-            STR_PATH = "predict/"
-            STR_FILE = ""
-            STR_SUFFIX = "_animate.png"
+                for i in range(sequenceLength):
+                    fig = plt.figure(figsize=(15, 5))
+                    ax = fig.add_subplot(131)
+                    ax.text(2, 4, 'Ground Truth', fontsize=16, color='red')
+                    toplot = track[i, ::, ::, ::]
+                    plt.imshow(toplot)
 
-            for i in range(sequenceLength):
-                filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
-                im = imageio.imread(filename)
-                images.append(im)
+                    ax = fig.add_subplot(132)
+                    ax.text(2, 4, 'Recovered', fontsize=16, color='red')
+                    toplot = track2[i, ::, ::, ::]
+                    plt.imshow(toplot)
 
-            imageio.mimsave('./result'+'_'+setup_name+'_'+str(index)+'.gif', images)
+                    ax = fig.add_subplot(133)
+                    ax.text(2, 4, 'Recovered(Rescaled)', fontsize=16, color='red')
+                    maxvalue = np.amax(toplot)
+                    if maxvalue <= 0:
+                        maxvalue = 1
+                    toplot = toplot / maxvalue
+                    plt.imshow(toplot)
+
+                    plt.savefig('predict/%05i_animate.png' % (i + 1))
+
+                images = []
+                STR_PATH = "predict/"
+                STR_FILE = ""
+                STR_SUFFIX = "_animate.png"
+
+                for i in range(sequenceLength):
+                    filename = STR_PATH+STR_FILE+ '%05i'%(i+1) +STR_SUFFIX
+                    im = imageio.imread(filename)
+                    images.append(im)
+
+                imageio.mimsave('result_'+inf_mode+'/'+setup_name+str(index)+'.gif', images)
 
 if __name__ == '__main__':
     if ('--help' in sys.argv) or ('-h' in sys.argv) or ('help' in sys.argv):
