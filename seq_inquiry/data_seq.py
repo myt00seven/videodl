@@ -17,11 +17,11 @@ sequence_length = 5
 SKIPPING_FRAMES = 12
 # when SKIPPING_FRAMES is 24, we pick one frame every second (24fps)
 
-data_path = "../../data/UCF/"
+
 
 class DataSet():
 
-    def __init__(self, seq_length=40, class_limit=None, random_class= False, image_shape=(224, 224, 3)):
+    def __init__(self, data_dir , seq_length=40, class_limit=None, random_class= False, image_shape=(224, 224, 3)):
         """Constructor.
         seq_length = (int) the number of frames to consider
         class_limit = (int) number of classes to limit the data to.
@@ -32,9 +32,10 @@ class DataSet():
         self.random_class = random_class
         self.sequence_path = '../../data//UCF/sequences/'
         self.max_frames = 300  # max number of frames a video can have for us to use it
+        self.data_dir = data_dir
 
         # Get the data.
-        self.data = self.get_data()
+        self.data = self.get_data(self.data_dir)
 
         # Get the classes.
         self.classes = self.get_classes()
@@ -45,9 +46,9 @@ class DataSet():
         self.image_shape = image_shape
 
     @staticmethod
-    def get_data():
+    def get_data(data_dir):
         """Load our data from file."""
-        with open('../../data/UCF/data_file.csv', 'r') as fin:
+        with open(os.path.join(data_dir, "data_file.csv"), 'r') as fin:
             reader = csv.reader(fin)
             data = list(reader)
 
@@ -168,7 +169,7 @@ class DataSet():
                 # Check to see if we've already saved this sequence.
                 if data_type is "images":
                     # Get and resample frames.
-                    frames = self.get_frames_for_sample(sample)
+                    frames = self.get_frames_for_sample(sample, self.data_dir)
                     # print(frames)
                     # print("len of frames:%d"%len(frames))
                     # print("seq_length:%d"%self.seq_length)
@@ -227,7 +228,7 @@ class DataSet():
                 # Check to see if we've already saved this sequence.
                 if data_type is "images":
                     # Get and resample frames.
-                    frames = self.get_frames_for_sample(sample)
+                    frames = self.get_frames_for_sample(sample, self.data_dir)
                     frames = self.rescale_list(frames, self.seq_length)
 
                     # Build the image sequence
@@ -270,12 +271,13 @@ class DataSet():
             return None
 
     @staticmethod
-    def get_frames_for_sample(sample):
+    def get_frames_for_sample(sample, data_dir):
         """Given a sample row from the data file, get all the corresponding frame
         filenames."""
-        path = data_path + sample[0] + '/' + sample[1] + '/'
-        filename = sample[2]
-        images = sorted(glob.glob(path + filename + '*jpg'))
+        path = os.path.join(data_dir, sample[0], sample[1], sample[2])
+#         path =  +  + '/' + sample[1] + '/'
+#         filename = sample[2]
+        images = sorted(glob.glob(path + '*jpg'))
         return images
 
     @staticmethod
