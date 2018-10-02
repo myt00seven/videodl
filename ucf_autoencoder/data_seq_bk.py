@@ -17,7 +17,8 @@ sequence_length = 5
 SKIPPING_FRAMES = 12
 # when SKIPPING_FRAMES is 24, we pick one frame every second (24fps)
 
-data_path = "../../data/UCF/"
+data_path = "/scratch/yma/git/five-video-classification-methods/data"
+# data_path = "../../data/UCF/"
 
 class DataSet():
 
@@ -29,7 +30,7 @@ class DataSet():
         """
         self.seq_length = seq_length
         self.class_limit = class_limit
-        self.sequence_path = '../../data//UCF/sequences/'
+        self.sequence_path = os.path.join(data_path, "sequences/")
         self.max_frames = 300  # max number of frames a video can have for us to use it
 
         # Get the data.
@@ -46,7 +47,7 @@ class DataSet():
     @staticmethod
     def get_data():
         """Load our data from file."""
-        with open('../../data/UCF/data_file.csv', 'r') as fin:
+        with open(os.path.join(data_path, "data_file.csv"), 'r') as fin:
             reader = csv.reader(fin)
             data = list(reader)
 
