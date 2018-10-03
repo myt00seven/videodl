@@ -198,7 +198,7 @@ class DataSet():
             if train_test == "train":
                 yield np.array(X), np.array(X)
             elif train_test == "test":
-                yield np.array(X), y
+                yield np.array(X), np.array(X)
             
             # yield np.array(X), np.array(y)
 

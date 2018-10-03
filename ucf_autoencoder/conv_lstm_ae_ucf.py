@@ -75,15 +75,18 @@ def main(mode=config.MODE,num_epochs=config.MAX_EPOCH):
         ucf_train_generator =  data.seq_generator(config.BATCHSIZE, 'train', 'images')
         ucf_val_generator =  data.seq_generator(config.BATCHSIZE, 'test', 'images')
 
-    # X, y  = next(ucf_train_generator)
+    X, y  = next(ucf_train_generator)
+    print("Dimension of X, y in train generator:", X.shape, y.shape)
+    X, y  = next(ucf_val_generator)
+    print("Dimension of X, y in test generator:", X.shape, y.shape)
     # print("maximum value in X is:%d"%X.max())
 
     elapsed = time.time() - t
     print("%.2f seconds to load the dataset" % elapsed )
 
     callbacks_func = [
-        TensorBoard(log_dir=config.LOG_DIR+'/convlstm_'+config.setup_name+'/epoch_'+str(num_epochs)), 
-        EarlyStopping(patience=30), 
+#         TensorBoard(log_dir=config.LOG_DIR+'/convlstm_'+config.setup_name+'/epoch_'+str(num_epochs)), 
+#         EarlyStopping(patience=30), 
         ModelCheckpoint(
             filepath='../../data/checkpoints/'+config.setup_name+'.{epoch:03d}-{val_loss:.4f}.hdf5',
             monitor='val_loss',
@@ -107,12 +110,12 @@ def main(mode=config.MODE,num_epochs=config.MAX_EPOCH):
 
     if mode=="train":
         autoencoder.fit_generator(ucf_train_generator,
-        steps_per_epoch=config.STEPS_PER_EPOCH_TRAIN,            
-        epochs=num_epochs, 
-        validation_data=ucf_val_generator,
-        validation_steps=config.STEPS_PER_EPOCH_TRAIN*0.1,
-        callbacks=callbacks_func 
-        )
+                                    steps_per_epoch=config.STEPS_PER_EPOCH_TRAIN,            
+                                    epochs=num_epochs, 
+                                    validation_data=ucf_val_generator,
+                                    validation_steps=config.STEPS_PER_EPOCH_TRAIN*0.1,
+                                    callbacks=callbacks_func 
+                                    )
     elif mode =="inf":
 
         ###################################

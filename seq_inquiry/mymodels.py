@@ -67,7 +67,7 @@ def ConvAutoEncoder(inputs, sequenceLength):
     x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv1'))(x)
     x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv2'))(x)
     # x = TimeDistributed(Conv2D(512, (3, 3), padding='same', activation='relu', name='block5_conv3'))(x)
-    x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu'))(x)
+    x = TimeDistributed(Conv2D(64, (3, 3), padding='same', activation='relu', name='block5_conv3'))(x)
 
 
     # LSTM part
@@ -75,7 +75,7 @@ def ConvAutoEncoder(inputs, sequenceLength):
 
     # x = TimeDistributed(Flatten())(x)
 
-    x = ConvLSTM2D(filters=64, kernel_size=(3, 3),padding='same', return_sequences=True)(x)
+    x = ConvLSTM2D(filters=64, kernel_size=(3, 3),padding='same', name="convlstm_before_encoded", return_sequences=True)(x)
     
     # x = Dense(2000, activation='relu')(x)
     # x = Reshape((15,10*10*4))(x)
