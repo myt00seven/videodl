@@ -139,7 +139,7 @@ def initilize(encoder, data_path, seq_length, class_limit, num_video_in_each_cla
     return data
 
 
-def get_inquiry(smp, data, inq_length):
+def get_inquiry(encoder, smp, data, inq_length, config):
     
     vid_len = int(smp[3])
     frams = data.get_frames_for_sample(smp, data.data_dir)
@@ -152,7 +152,7 @@ def get_inquiry(smp, data, inq_length):
     stepsize = vid_len / inq_length - 2
     for j in range(0, inq_length):
         jst = j*stepsize
-        jend = j*stepsize+SEQ_LENGTH
+        jend = j*stepsize+config.sequenceLength
         seqX.append(seq[jst:jend])
         X_frames_start.append((jst, jend))
     seqX = np.array(seqX)
@@ -163,12 +163,12 @@ def get_inquiry(smp, data, inq_length):
             "smp": smp,
             "X_frames_start": X_frames_start}
 
-def inquiry_in_database(data, database, config, inq_length , match_method = "dtw", Given_inquiry = False, inq_dict=None):
+def inquiry_in_database(encoder, data, database, config, inq_length , match_method = "dtw", Given_inquiry = False, inq_dict=None):
     
     if not Given_inquiry:
         index = np.random.choice(len(database))
         inq_smp = database[index][1]
-        inq_dict = get_inquiry(inq_smp, data, inq_length)
+        inq_dict = get_inquiry(encoder, inq_smp, data, inq_length, config)
         
     inquiry_seqY = inq_dict["seqY"]
             
@@ -193,7 +193,7 @@ def inquiry_in_database(data, database, config, inq_length , match_method = "dtw
     bestscore = 1<<30
 #     dist, cost, acc, path
     for (idx,i) in enumerate(database):
-        if idx == index:
+        if database[idx][1][2] == inq_dict["smp"][2]:
             continue
 
 #         print(inquiry_seqY.shape) 8 * 14470
@@ -208,12 +208,12 @@ def inquiry_in_database(data, database, config, inq_length , match_method = "dtw
             # slide the inqury sequence over the candidate video to find the minimal match position
             dist = NaiveMatch(cost)
             
-        scores.append((dist,i[1]))
+        scores.append((dist,i[1][2]))
         if dist< bestscore:
             bestscore = dist
             bestpath = path
             bestacc= acc
-            bestfilename = i[1]
+            bestfilename = i[1][2]
             
     scores = sorted(scores, key=lambda x:x[0])
     
@@ -242,6 +242,8 @@ def show_inquriy_stats(inq_dict, inq_result, show_top_limit = 10):
     print("All scores in database:")
     for i in range( min(show_top_limit, len(inq_result["scores"])) ):
         print("Record: "+ inq_result["scores"][i][1].ljust(25)+ "\tDTW Dist: "+ str(inq_result["scores"][i][0]))
+        
+    
 
 
 
