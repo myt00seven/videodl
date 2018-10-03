@@ -11,8 +11,8 @@ WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases
 # weights_file = "/home/lab.analytics.northwestern.edu/yma/git/data/checkpoints/ucf_vgg16_seq6_convlstm.040-0.0842.hdf5"
 weights_file = ""
 
-model_arch = "ConvAutoEncoder"
-setup_name = "ucf_vgg16_seq3_convlstm"
+model_arch = "SimpleLstmAutoEncoder"
+setup_name = "ucf_seq3_simple_lstm"
 
 
 LOG_DIR = "../../tensorboard/log/"

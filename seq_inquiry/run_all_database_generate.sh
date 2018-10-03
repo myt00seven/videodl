@@ -1,0 +1,6 @@
+python V2VIR_V4_conv_500.py
+python V2VIR_V4_lstm_500.py
+python V2VIR_V4_convlstm_500.py
+python V2VIR_V4_conv_5000.py
+python V2VIR_V4_convlstm_5000.py
+python V2VIR_V4_lstm_5000.py
